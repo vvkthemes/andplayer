@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.ExplicitApiMode
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -34,6 +36,10 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+kotlin {
+    explicitApi = ExplicitApiMode.Strict
 }
 
 ksp {
