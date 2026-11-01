@@ -1,4 +1,4 @@
-package com.example.andplayer.ui.theme
+package com.example.andplayer.theme
 
 import androidx.compose.ui.graphics.Color
 
