@@ -2,7 +2,6 @@ package com.example.andplayer.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.andplayer.domain.Song
 import com.example.andplayer.domain.SongRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,7 +15,7 @@ import javax.inject.Inject
 internal class PlayerViewModel @Inject constructor(
     private val songRepository: SongRepository,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow<UiState<List<Song>>>(UiState.Empty)
+    private val _uiState = MutableStateFlow<UiState<List<SongItem>>>(UiState.Empty)
     val uiState = _uiState.asStateFlow()
 
     init {
@@ -29,7 +28,11 @@ internal class PlayerViewModel @Inject constructor(
                 .onStart { _uiState.value = UiState.Loading }
                 .catch { error -> _uiState.value = UiState.Error(error.message) }
                 .collect { songs ->
-                    _uiState.value = if (songs.isEmpty()) UiState.Empty else UiState.Success(songs)
+                    if (songs.isEmpty()) {
+                        _uiState.value = UiState.Empty
+                    } else {
+                        _uiState.value = UiState.Success(songs.map { it.toSongItem() })
+                    }
                 }
         }
     }
