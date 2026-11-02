@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.andplayer.domain.SongRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
@@ -15,15 +16,15 @@ import javax.inject.Inject
 internal class PlayerViewModel @Inject constructor(
     private val songRepository: SongRepository,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow<UiState<List<SongItem>>>(UiState.Empty)
+    private val _uiState = MutableStateFlow<UiState<List<SongItem>>>(UiState.PermissionRequired)
     val uiState = _uiState.asStateFlow()
 
-    init {
-        loadSongs()
-    }
+    private var observeSongsJob: Job? = null
 
-    private fun loadSongs() {
-        viewModelScope.launch {
+    fun onPermissionGranted() {
+        if (observeSongsJob?.isActive == true) return
+
+        observeSongsJob = viewModelScope.launch {
             songRepository.observeSongs()
                 .onStart { _uiState.value = UiState.Loading }
                 .catch { error -> _uiState.value = UiState.Error(error.message) }
