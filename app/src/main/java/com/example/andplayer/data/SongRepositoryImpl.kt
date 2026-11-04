@@ -1,39 +1,75 @@
 package com.example.andplayer.data
 
+import android.content.ContentResolver
+import android.content.ContentUris
+import android.database.ContentObserver
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
+import android.provider.MediaStore.Audio.Media.ARTIST
+import android.provider.MediaStore.Audio.Media.DURATION
+import android.provider.MediaStore.Audio.Media.TITLE
+import android.provider.MediaStore.Audio.Media._ID
 import com.example.andplayer.domain.Song
 import com.example.andplayer.domain.SongRepository
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
-internal class SongRepositoryImpl @Inject constructor() : SongRepository {
-    override fun observeSongs(): Flow<List<Song>> = flow {
-        delay(1000)
-        emit(emptyList())
+internal class SongRepositoryImpl @Inject constructor(
+    private val contentResolver: ContentResolver,
+) : SongRepository {
 
-        delay(1000)
-        emit(
-            listOf(
-                Song(
-                    id = 1,
-                    title = "Some Song",
-                    artist = "Some Artist",
-                    duration = 180000L,
-                    uriString = Uri.EMPTY.toString(),
-                ),
-                Song(
-                    id = 2,
-                    title = "Some Very very very Long Song with comment and long text",
-                    artist = "Some Long Artist with extra text",
-                    duration = 65000L,
-                    uriString = Uri.EMPTY.toString(),
-                ),
-            ),
-        )
+    override fun observeSongs(): Flow<List<Song>> = callbackFlow {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                trySend(Unit)
+            }
+        }
+        contentResolver.registerContentObserver(AUDIO_URI, true, observer)
+        trySend(Unit)
+        awaitClose { contentResolver.unregisterContentObserver(observer) }
+    }
+        .conflate()
+        .map { querySongs() }
 
-        delay(3000)
-        throw Exception("Test error")
+    private suspend fun querySongs(): List<Song> = withContext(Dispatchers.IO) {
+        val cursor = contentResolver.query(AUDIO_URI, PROJECTION, SELECTION, null, SORT_ORDER)
+            ?: throw IllegalStateException("MediaStore query returned null")
+
+        cursor.use {
+            val idColumn = it.getColumnIndexOrThrow(_ID)
+            val titleColumn = it.getColumnIndexOrThrow(TITLE)
+            val artistColumn = it.getColumnIndexOrThrow(ARTIST)
+            val durationColumn = it.getColumnIndexOrThrow(DURATION)
+
+            buildList {
+                while (it.moveToNext()) {
+                    val id = it.getLong(idColumn)
+                    add(
+                        Song(
+                            id = id,
+                            title = it.getString(titleColumn),
+                            artist = it.getString(artistColumn),
+                            duration = it.getLong(durationColumn),
+                            uriString = ContentUris.withAppendedId(AUDIO_URI, id).toString(),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    private companion object {
+        val AUDIO_URI: Uri = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
+        val PROJECTION = arrayOf(_ID, TITLE, ARTIST, DURATION)
+        const val SELECTION = "$DURATION > 0"
+        const val SORT_ORDER = "$TITLE COLLATE NOCASE ASC"
     }
 }
