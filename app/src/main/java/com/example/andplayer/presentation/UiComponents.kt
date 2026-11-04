@@ -5,11 +5,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun OneLineText(
@@ -20,7 +22,9 @@ internal fun OneLineText(
         text = text,
         modifier = modifier,
         maxLines = 1,
+        minLines = 1,
         overflow = TextOverflow.Ellipsis,
+        style = LocalTextStyle.current.copy(lineHeight = 20.sp),
     )
 }
 

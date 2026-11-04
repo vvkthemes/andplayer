@@ -2,6 +2,8 @@ package com.example.andplayer.di
 
 import android.content.ContentResolver
 import android.content.Context
+import androidx.media3.common.AudioAttributes
+import androidx.media3.exoplayer.ExoPlayer
 import com.example.andplayer.data.SongRepositoryImpl
 import com.example.andplayer.domain.SongRepository
 import dagger.Binds
@@ -28,4 +30,11 @@ internal object AppProvideModule {
     @Singleton
     fun provideContentResolver(@ApplicationContext context: Context): ContentResolver =
         context.contentResolver
+
+    @Provides
+    @Singleton
+    fun provideExoPlayer(@ApplicationContext context: Context): ExoPlayer =
+        ExoPlayer.Builder(context)
+            .build()
+            .apply { setAudioAttributes(AudioAttributes.DEFAULT, true) }
 }
