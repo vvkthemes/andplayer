@@ -49,7 +49,14 @@ internal fun PlayerScreen(
         }
 
         UiState.Empty -> Text("List is empty")
-        is UiState.Error -> Text(state.message ?: "Unknown error")
+        is UiState.Error -> {
+            Column {
+                Text(state.message ?: "Unknown error")
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = viewModel::onPermissionGranted) { Text("Retry") }
+            }
+        }
+
         UiState.Loading -> {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("List is loading")
