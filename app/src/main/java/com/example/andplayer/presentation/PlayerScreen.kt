@@ -41,6 +41,8 @@ internal fun PlayerScreen(
                     state = state,
                     onTogglePlayback = viewModel::onTogglePlayback,
                     onStop = viewModel::onStop,
+                    onPrev = viewModel::onPrev,
+                    onNext = viewModel::onNext,
                 )
             }
         },

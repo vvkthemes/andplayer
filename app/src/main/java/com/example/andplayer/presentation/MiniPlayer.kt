@@ -1,12 +1,13 @@
 package com.example.andplayer.presentation
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,6 +21,8 @@ internal fun MiniPlayer(
     state: MiniPlayerUiState,
     onTogglePlayback: () -> Unit,
     onStop: () -> Unit,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
 ) {
     Surface(
         modifier = Modifier
@@ -27,37 +30,53 @@ internal fun MiniPlayer(
             .navigationBarsPadding(),
         tonalElevation = 3.dp,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
+            ListItem(
+                headlineContent = { OneLineText(state.song.title) },
+                supportingContent = { OneLineText(state.song.artist) },
+                trailingContent = { OneLineText(state.song.duration) },
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
             ) {
-                OneLineText(state.song.title)
-                OneLineText(state.song.artist)
-            }
-
-            IconButton(onClick = onTogglePlayback) {
-                if (state.isPlaying)
+                IconButton(onClick = onPrev) {
                     Icon(
-                        painter = painterResource(R.drawable.ic_pause),
-                        contentDescription = "Pause",
+                        painter = painterResource(R.drawable.ic_prev),
+                        contentDescription = "Previous",
                     )
-                else
-                    Icon(
-                        painter = painterResource(R.drawable.ic_play),
-                        contentDescription = "Play",
-                    )
-            }
+                }
 
-            IconButton(onClick = onStop) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_stop),
-                    contentDescription = "Stop",
-                )
+                IconButton(onClick = onTogglePlayback) {
+                    if (state.isPlaying)
+                        Icon(
+                            painter = painterResource(R.drawable.ic_pause),
+                            contentDescription = "Pause",
+                        )
+                    else
+                        Icon(
+                            painter = painterResource(R.drawable.ic_play),
+                            contentDescription = "Play",
+                        )
+                }
+
+                IconButton(onClick = onStop) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_stop),
+                        contentDescription = "Stop",
+                    )
+                }
+
+                IconButton(onClick = onNext) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_next),
+                        contentDescription = "Next",
+                    )
+                }
             }
         }
     }
