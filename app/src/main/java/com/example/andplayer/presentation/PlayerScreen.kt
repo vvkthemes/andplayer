@@ -43,6 +43,7 @@ internal fun PlayerScreen(
                     onStop = viewModel::onStop,
                     onPrev = viewModel::onPrev,
                     onNext = viewModel::onNext,
+                    onSeek = viewModel::onSeek,
                 )
             }
         },
@@ -103,7 +104,7 @@ internal fun PlayerScreen(
                                 ListItem(
                                     headlineContent = { OneLineText(song.title) },
                                     supportingContent = { OneLineText(song.artist) },
-                                    trailingContent = { OneLineText(song.duration) },
+                                    trailingContent = { OneLineText(song.durationString) },
                                 )
                             }
                         }

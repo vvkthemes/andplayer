@@ -12,10 +12,12 @@ import com.example.andplayer.domain.Song
 import com.example.andplayer.domain.SongRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -59,6 +61,18 @@ internal class PlayerViewModel @Inject constructor(
                 }
             },
         )
+
+        viewModelScope.launch {
+            while (isActive) {
+                val state = _miniPlayerState.value
+                if (state != null && player.isPlaying) {
+                    _miniPlayerState.value = state.copy(
+                        position = player.currentPosition.coerceAtLeast(0L),
+                    )
+                }
+                delay(500L)
+            }
+        }
     }
 
     fun onPermissionGranted() {
@@ -135,11 +149,17 @@ internal class PlayerViewModel @Inject constructor(
 
     fun onPrev() = player.seekToPrevious()
     fun onNext() = player.seekToNext()
+
+    fun onSeek(position: Long) {
+        player.seekTo(position)
+        _miniPlayerState.value = _miniPlayerState.value?.copy(position = position)
+    }
 }
 
 internal data class MiniPlayerUiState(
     val song: SongItem,
     val isPlaying: Boolean,
+    val position: Long = 0L,
 )
 
 private fun Song.toMediaItem(): MediaItem {
