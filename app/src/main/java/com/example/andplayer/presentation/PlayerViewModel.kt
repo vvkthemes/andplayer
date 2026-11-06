@@ -59,6 +59,16 @@ internal class PlayerViewModel @Inject constructor(
                     _miniPlayerState.value = _miniPlayerState.value?.copy(song = song.toSongItem())
                     updatePlayPauseUi()
                 }
+
+                override fun onPositionDiscontinuity(
+                    oldPosition: Player.PositionInfo,
+                    newPosition: Player.PositionInfo,
+                    reason: Int,
+                ) {
+                    _miniPlayerState.value = _miniPlayerState.value?.copy(
+                        position = newPosition.positionMs.coerceAtLeast(0L),
+                    )
+                }
             },
         )
 
@@ -154,6 +164,9 @@ internal class PlayerViewModel @Inject constructor(
         player.seekTo(position)
         _miniPlayerState.value = _miniPlayerState.value?.copy(position = position)
     }
+
+    fun onRewind() = player.seekBack()
+    fun onForward() = player.seekForward()
 }
 
 internal data class MiniPlayerUiState(

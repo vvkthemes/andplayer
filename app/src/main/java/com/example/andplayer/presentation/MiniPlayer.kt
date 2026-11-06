@@ -36,6 +36,8 @@ internal fun MiniPlayer(
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
+    onRewind: () -> Unit,
+    onForward: () -> Unit,
 ) {
     Surface(
         modifier = Modifier
@@ -108,6 +110,13 @@ internal fun MiniPlayer(
                     )
                 }
 
+                IconButton(onClick = onRewind) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_rewind),
+                        contentDescription = "Rewind",
+                    )
+                }
+
                 IconButton(onClick = onTogglePlayback) {
                     if (state.isPlaying)
                         Icon(
@@ -125,6 +134,13 @@ internal fun MiniPlayer(
                     Icon(
                         painter = painterResource(R.drawable.ic_stop),
                         contentDescription = "Stop",
+                    )
+                }
+
+                IconButton(onClick = onForward) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_forward),
+                        contentDescription = "Forward",
                     )
                 }
 

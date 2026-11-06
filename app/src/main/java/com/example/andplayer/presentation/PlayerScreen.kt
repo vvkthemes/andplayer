@@ -44,6 +44,8 @@ internal fun PlayerScreen(
                     onPrev = viewModel::onPrev,
                     onNext = viewModel::onNext,
                     onSeek = viewModel::onSeek,
+                    onRewind = viewModel::onRewind,
+                    onForward = viewModel::onForward,
                 )
             }
         },

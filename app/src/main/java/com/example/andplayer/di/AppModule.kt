@@ -35,6 +35,8 @@ internal object AppProvideModule {
     @Singleton
     fun provideExoPlayer(@ApplicationContext context: Context): ExoPlayer =
         ExoPlayer.Builder(context)
+            .setSeekBackIncrementMs(10_000)
+            .setSeekForwardIncrementMs(10_000)
             .build()
             .apply { setAudioAttributes(AudioAttributes.DEFAULT, true) }
 }
