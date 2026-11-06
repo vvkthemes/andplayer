@@ -1,6 +1,5 @@
 package com.example.andplayer.presentation
 
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.media3.common.C
@@ -10,73 +9,95 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import com.example.andplayer.domain.Song
 import com.example.andplayer.domain.SongRepository
+import com.example.andplayer.domain.SongsState.Empty
+import com.example.andplayer.domain.SongsState.Error
+import com.example.andplayer.domain.SongsState.Loading
+import com.example.andplayer.domain.SongsState.NotStarted
+import com.example.andplayer.domain.SongsState.Success
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-internal class PlayerViewModel @Inject constructor(
+internal class PlayerBarViewModel @Inject constructor(
     private val songRepository: SongRepository,
     exoPlayer: dagger.Lazy<ExoPlayer>,
 ) : ViewModel() {
 
     private val player: ExoPlayer by lazy { exoPlayer.get() }
 
-    private val _uiState = MutableStateFlow<UiState<List<SongItem>>>(UiState.PermissionRequired)
-    val uiState = _uiState.asStateFlow()
-
-    private val _miniPlayerState = MutableStateFlow<MiniPlayerUiState?>(null)
-    val miniPlayerState = _miniPlayerState.asStateFlow()
+    private val _playerBarState = MutableStateFlow<PlayerBarUiState?>(null)
+    val playerBarState = _playerBarState.asStateFlow()
 
     private var songs: List<Song> = emptyList()
-    private var observeSongsJob: Job? = null
 
+    private val playerListener = object : Player.Listener {
+        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) =
+            updatePlayPauseUi()
+
+        override fun onIsPlayingChanged(isPlaying: Boolean) = updatePlayPauseUi()
+
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            if (playbackState == Player.STATE_ENDED) {
+                _playerBarState.value = null
+            } else {
+                updatePlayPauseUi()
+            }
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            val song = songs.getOrNull(player.currentMediaItemIndex) ?: return
+            _playerBarState.value = _playerBarState.value?.copy(song = song)
+            updatePlayPauseUi()
+        }
+
+        override fun onPositionDiscontinuity(
+            oldPosition: Player.PositionInfo,
+            newPosition: Player.PositionInfo,
+            reason: Int,
+        ) {
+            _playerBarState.value = _playerBarState.value?.copy(
+                position = newPosition.positionMs.coerceAtLeast(0L),
+            )
+        }
+    }
 
     init {
-        player.addListener(
-            object : Player.Listener {
-                override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                    updatePlayPauseUi()
-                }
+        player.addListener(playerListener)
+        observeSongsState()
+        observePlayerPosition()
+    }
 
-                override fun onPlaybackStateChanged(playbackState: Int) {
-                    if (playbackState == Player.STATE_ENDED) {
-                        _miniPlayerState.value = null
-                    } else {
-                        updatePlayPauseUi()
+    private fun observeSongsState() {
+        viewModelScope.launch {
+            songRepository.songsState.collect { state ->
+                when (state) {
+                    is Success -> {
+                        songs = state.songs
+                        syncPlayerPlaylist(state.songs)
                     }
-                }
 
-                override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                    val song = songs.getOrNull(player.currentMediaItemIndex) ?: return
-                    _miniPlayerState.value = _miniPlayerState.value?.copy(song = song.toSongItem())
-                    updatePlayPauseUi()
-                }
+                    Empty -> {
+                        songs = emptyList()
+                        syncPlayerPlaylist(emptyList())
+                    }
 
-                override fun onPositionDiscontinuity(
-                    oldPosition: Player.PositionInfo,
-                    newPosition: Player.PositionInfo,
-                    reason: Int,
-                ) {
-                    _miniPlayerState.value = _miniPlayerState.value?.copy(
-                        position = newPosition.positionMs.coerceAtLeast(0L),
-                    )
+                    NotStarted, Loading, is Error -> Unit
                 }
-            },
-        )
+            }
+        }
+    }
 
+    private fun observePlayerPosition() {
         viewModelScope.launch {
             while (isActive) {
-                val state = _miniPlayerState.value
+                val state = _playerBarState.value
                 if (state != null && player.isPlaying) {
-                    _miniPlayerState.value = state.copy(
+                    _playerBarState.value = state.copy(
                         position = player.currentPosition.coerceAtLeast(0L),
                     )
                 }
@@ -85,31 +106,10 @@ internal class PlayerViewModel @Inject constructor(
         }
     }
 
-    fun onPermissionGranted() {
-        if (observeSongsJob?.isActive == true) return
-
-        observeSongsJob = viewModelScope.launch {
-            songRepository.observeSongs()
-                .onStart { _uiState.value = UiState.Loading }
-                .catch { error -> _uiState.value = UiState.Error(error.message) }
-                .collect { result ->
-                    songs = result
-
-                    if (result.isEmpty()) {
-                        _uiState.value = UiState.Empty
-                    } else {
-                        _uiState.value = UiState.Success(result.map { it.toSongItem() })
-                    }
-
-                    syncPlayerPlaylist(result)
-                }
-        }
-    }
-
     private fun syncPlayerPlaylist(newSongs: List<Song>) {
         if (newSongs.isEmpty()) {
             player.clearMediaItems()
-            _miniPlayerState.value = null
+            _playerBarState.value = null
             return
         }
 
@@ -131,15 +131,15 @@ internal class PlayerViewModel @Inject constructor(
 
     private fun updatePlayPauseUi() {
         val shouldShowPause = player.playWhenReady && player.playbackState != Player.STATE_ENDED
-        _miniPlayerState.value = _miniPlayerState.value?.copy(isPlaying = shouldShowPause)
+        _playerBarState.value = _playerBarState.value?.copy(isPlaying = shouldShowPause)
     }
 
     fun onClickTrack(id: Long) {
         val startIndex = songs.indexOfFirst { it.id == id }
         if (startIndex == -1) return
 
-        _miniPlayerState.value = MiniPlayerUiState(
-            song = songs[startIndex].toSongItem(),
+        _playerBarState.value = PlayerBarUiState(
+            song = songs[startIndex],
             isPlaying = false,
         )
 
@@ -154,31 +154,34 @@ internal class PlayerViewModel @Inject constructor(
     fun onStop() {
         player.stop()
         player.clearMediaItems()
-        _miniPlayerState.value = null
+        _playerBarState.value = null
     }
 
     fun onPrev() = player.seekToPrevious()
     fun onNext() = player.seekToNext()
 
-    fun onSeek(position: Long) {
-        player.seekTo(position)
-        _miniPlayerState.value = _miniPlayerState.value?.copy(position = position)
+    fun onSeekTo(position: Long) {
+        val safePosition = position.coerceAtLeast(0L)
+        player.seekTo(safePosition)
+        _playerBarState.value = _playerBarState.value?.copy(position = safePosition)
     }
 
     fun onRewind() = player.seekBack()
     fun onForward() = player.seekForward()
+
+    override fun onCleared() = player.removeListener(playerListener)
 }
 
-internal data class MiniPlayerUiState(
-    val song: SongItem,
-    val isPlaying: Boolean,
+internal data class PlayerBarUiState(
+    val song: Song,
+    val isPlaying: Boolean = false,
     val position: Long = 0L,
 )
 
 private fun Song.toMediaItem(): MediaItem {
     return MediaItem.Builder()
         .setMediaId(id.toString())
-        .setUri(uriString.toUri())
+        .setUri(uriString)
         .setMediaMetadata(
             MediaMetadata.Builder()
                 .setTitle(title)

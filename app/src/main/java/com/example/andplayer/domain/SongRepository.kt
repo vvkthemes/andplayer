@@ -1,7 +1,9 @@
 package com.example.andplayer.domain
 
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 
 internal interface SongRepository {
-    fun observeSongs(): Flow<List<Song>>
+    val songsState: StateFlow<SongsState>
+    fun startObserving()
+    fun retryObserving()
 }

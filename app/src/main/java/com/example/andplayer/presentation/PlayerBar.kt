@@ -29,8 +29,8 @@ import com.example.andplayer.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun MiniPlayer(
-    state: MiniPlayerUiState,
+internal fun PlayerBar(
+    state: PlayerBarUiState,
     onTogglePlayback: () -> Unit,
     onStop: () -> Unit,
     onPrev: () -> Unit,
@@ -95,7 +95,10 @@ internal fun MiniPlayer(
                         )
                     },
                 )
-                Text(state.song.durationString, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    getDurationString(state.song.duration),
+                    style = MaterialTheme.typography.labelSmall,
+                )
             }
 
             Row(
@@ -103,53 +106,17 @@ internal fun MiniPlayer(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center,
             ) {
-                IconButton(onClick = onPrev) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_prev),
-                        contentDescription = "Previous",
-                    )
-                }
-
-                IconButton(onClick = onRewind) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_rewind),
-                        contentDescription = "Rewind",
-                    )
-                }
-
-                IconButton(onClick = onTogglePlayback) {
+                IconButton(onPrev) { Icon(painterResource(R.drawable.ic_prev), "Previous") }
+                IconButton(onRewind) { Icon(painterResource(R.drawable.ic_rewind), "Rewind") }
+                IconButton(onTogglePlayback) {
                     if (state.isPlaying)
-                        Icon(
-                            painter = painterResource(R.drawable.ic_pause),
-                            contentDescription = "Pause",
-                        )
+                        Icon(painterResource(R.drawable.ic_pause), "Pause")
                     else
-                        Icon(
-                            painter = painterResource(R.drawable.ic_play),
-                            contentDescription = "Play",
-                        )
+                        Icon(painterResource(R.drawable.ic_play), "Play")
                 }
-
-                IconButton(onClick = onStop) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_stop),
-                        contentDescription = "Stop",
-                    )
-                }
-
-                IconButton(onClick = onForward) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_forward),
-                        contentDescription = "Forward",
-                    )
-                }
-
-                IconButton(onClick = onNext) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_next),
-                        contentDescription = "Next",
-                    )
-                }
+                IconButton(onStop) { Icon(painterResource(R.drawable.ic_stop), "Stop") }
+                IconButton(onForward) { Icon(painterResource(R.drawable.ic_forward), "Forward") }
+                IconButton(onNext) { Icon(painterResource(R.drawable.ic_next), "Next") }
             }
         }
     }
