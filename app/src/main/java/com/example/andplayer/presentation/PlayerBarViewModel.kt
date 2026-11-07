@@ -29,6 +29,7 @@ internal class PlayerBarViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val player: ExoPlayer by lazy { exoPlayer.get() }
+    private var playerInitialized = false
 
     private val _playerBarState = MutableStateFlow<PlayerBarUiState?>(null)
     val playerBarState = _playerBarState.asStateFlow()
@@ -67,9 +68,15 @@ internal class PlayerBarViewModel @Inject constructor(
     }
 
     init {
-        player.addListener(playerListener)
         observeSongsState()
         observePlayerPosition()
+    }
+
+    private fun ensurePlayerInitialized() {
+        if (!playerInitialized) {
+            player.addListener(playerListener)
+            playerInitialized = true
+        }
     }
 
     private fun observeSongsState() {
@@ -78,12 +85,12 @@ internal class PlayerBarViewModel @Inject constructor(
                 when (state) {
                     is Success -> {
                         songs = state.songs
-                        syncPlayerPlaylist(state.songs)
+                        if (playerInitialized) syncPlayerPlaylist(state.songs)
                     }
 
                     Empty -> {
                         songs = emptyList()
-                        syncPlayerPlaylist(emptyList())
+                        if (playerInitialized) syncPlayerPlaylist(emptyList())
                     }
 
                     NotStarted, Loading, is Error -> Unit
@@ -138,6 +145,8 @@ internal class PlayerBarViewModel @Inject constructor(
         val startIndex = songs.indexOfFirst { it.id == id }
         if (startIndex == -1) return
 
+        ensurePlayerInitialized()
+
         _playerBarState.value = PlayerBarUiState(
             song = songs[startIndex],
             isPlaying = false,
@@ -169,7 +178,9 @@ internal class PlayerBarViewModel @Inject constructor(
     fun onRewind() = player.seekBack()
     fun onForward() = player.seekForward()
 
-    override fun onCleared() = player.removeListener(playerListener)
+    override fun onCleared() {
+        if (playerInitialized) player.removeListener(playerListener)
+    }
 }
 
 internal data class PlayerBarUiState(
