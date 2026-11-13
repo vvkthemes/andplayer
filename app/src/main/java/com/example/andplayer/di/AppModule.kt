@@ -2,8 +2,6 @@ package com.example.andplayer.di
 
 import android.content.ContentResolver
 import android.content.Context
-import androidx.media3.common.AudioAttributes
-import androidx.media3.exoplayer.ExoPlayer
 import com.example.andplayer.data.SongRepositoryImpl
 import com.example.andplayer.domain.SongRepository
 import dagger.Binds
@@ -45,13 +43,4 @@ internal object AppProvideModule {
     @AppScope
     fun provideApplicationScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-
-    @Provides
-    @Singleton
-    fun provideExoPlayer(@ApplicationContext context: Context): ExoPlayer =
-        ExoPlayer.Builder(context)
-            .setSeekBackIncrementMs(10_000)
-            .setSeekForwardIncrementMs(10_000)
-            .build()
-            .apply { setAudioAttributes(AudioAttributes.DEFAULT, true) }
 }
