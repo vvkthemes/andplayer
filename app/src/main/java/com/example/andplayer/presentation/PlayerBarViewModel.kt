@@ -15,6 +15,7 @@ import com.example.andplayer.domain.SongsState.Loading
 import com.example.andplayer.domain.SongsState.NotStarted
 import com.example.andplayer.domain.SongsState.Success
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,10 +32,12 @@ internal class PlayerBarViewModel @Inject constructor(
     private val player: ExoPlayer by lazy { exoPlayer.get() }
     private var playerInitialized = false
 
+    // use setPlayerBarState for mutation
     private val _playerBarState = MutableStateFlow<PlayerBarUiState?>(null)
     val playerBarState = _playerBarState.asStateFlow()
 
     private var songs: List<Song> = emptyList()
+    private var positionTickerJob: Job? = null
 
     private val playerListener = object : Player.Listener {
         override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) =
@@ -44,7 +47,7 @@ internal class PlayerBarViewModel @Inject constructor(
 
         override fun onPlaybackStateChanged(playbackState: Int) {
             if (playbackState == Player.STATE_ENDED) {
-                _playerBarState.value = null
+                setPlayerBarState(null)
             } else {
                 updatePlayPauseUi()
             }
@@ -52,7 +55,7 @@ internal class PlayerBarViewModel @Inject constructor(
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
             val song = songs.getOrNull(player.currentMediaItemIndex) ?: return
-            _playerBarState.value = _playerBarState.value?.copy(song = song)
+            setPlayerBarState(_playerBarState.value?.copy(song = song))
             updatePlayPauseUi()
         }
 
@@ -61,15 +64,14 @@ internal class PlayerBarViewModel @Inject constructor(
             newPosition: Player.PositionInfo,
             reason: Int,
         ) {
-            _playerBarState.value = _playerBarState.value?.copy(
-                position = newPosition.positionMs.coerceAtLeast(0L),
+            setPlayerBarState(
+                _playerBarState.value?.copy(position = newPosition.positionMs.coerceAtLeast(0L)),
             )
         }
     }
 
     init {
         observeSongsState()
-        observePlayerPosition()
     }
 
     private fun ensurePlayerInitialized() {
@@ -99,24 +101,42 @@ internal class PlayerBarViewModel @Inject constructor(
         }
     }
 
-    private fun observePlayerPosition() {
-        viewModelScope.launch {
+    private fun setPlayerBarState(newState: PlayerBarUiState?) {
+        val oldState = _playerBarState.value
+        if (oldState == newState) return
+
+        _playerBarState.value = newState
+
+        when {
+            newState?.isPlaying == true && oldState?.isPlaying != true -> startPositionTicker()
+            newState?.isPlaying != true && oldState?.isPlaying == true -> stopPositionTicker()
+        }
+    }
+
+    private fun startPositionTicker() {
+        positionTickerJob?.cancel()
+
+        positionTickerJob = viewModelScope.launch {
             while (isActive) {
-                val state = _playerBarState.value
-                if (state != null && player.isPlaying) {
-                    _playerBarState.value = state.copy(
-                        position = player.currentPosition.coerceAtLeast(0L),
-                    )
+                val state = _playerBarState.value ?: break
+                if (player.isPlaying) {
+                    _playerBarState.value =
+                        state.copy(position = player.currentPosition.coerceAtLeast(0L))
                 }
                 delay(500L)
             }
         }
     }
 
+    private fun stopPositionTicker() {
+        positionTickerJob?.cancel()
+        positionTickerJob = null
+    }
+
     private fun syncPlayerPlaylist(newSongs: List<Song>) {
         if (newSongs.isEmpty()) {
             player.clearMediaItems()
-            _playerBarState.value = null
+            setPlayerBarState(null)
             return
         }
 
@@ -138,7 +158,7 @@ internal class PlayerBarViewModel @Inject constructor(
 
     private fun updatePlayPauseUi() {
         val shouldShowPause = player.playWhenReady && player.playbackState != Player.STATE_ENDED
-        _playerBarState.value = _playerBarState.value?.copy(isPlaying = shouldShowPause)
+        setPlayerBarState(_playerBarState.value?.copy(isPlaying = shouldShowPause))
     }
 
     fun onClickTrack(id: Long) {
@@ -147,10 +167,7 @@ internal class PlayerBarViewModel @Inject constructor(
 
         ensurePlayerInitialized()
 
-        _playerBarState.value = PlayerBarUiState(
-            song = songs[startIndex],
-            isPlaying = false,
-        )
+        setPlayerBarState(PlayerBarUiState(song = songs[startIndex], isPlaying = false))
 
         val mediaItems = songs.map { it.toMediaItem() }
         player.setMediaItems(mediaItems, startIndex, C.TIME_UNSET)
@@ -163,7 +180,7 @@ internal class PlayerBarViewModel @Inject constructor(
     fun onStop() {
         player.stop()
         player.clearMediaItems()
-        _playerBarState.value = null
+        setPlayerBarState(null)
     }
 
     fun onPrev() = player.seekToPrevious()
@@ -172,7 +189,7 @@ internal class PlayerBarViewModel @Inject constructor(
     fun onSeekTo(position: Long) {
         val safePosition = position.coerceAtLeast(0L)
         player.seekTo(safePosition)
-        _playerBarState.value = _playerBarState.value?.copy(position = safePosition)
+        setPlayerBarState(_playerBarState.value?.copy(position = safePosition))
     }
 
     fun onRewind() = player.seekBack()
